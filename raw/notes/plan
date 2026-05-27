@@ -1,0 +1,451 @@
+3. APUE789 11 12 13
+7. dma buf子系统分析 
+8. android ion分析
+
+11. c库函数 series
+   1. string
+   2. file
+   3. net
+   4. memory
+
+12. cache MESI协议
+15. binding cpu related: numactl --cpubind=0 --membind=0 
+    taskset -c cpu, irq binding: irq_set_affinity_hint, pci_alloc_irq_vectors_affinity?
+17. autotools, Makefile.am, vim terminal, 编译连接库
+
+20. pthread
+
+linux poll  xx
+automake
+preempt   xx
+eBPF
+tracepoint  1
+uprobe
+各种火焰图：cpu，memory, offcpu
+uml note                  xx
+rsa aead digest (aes-ccm, aes-gcm, cbc(aes128)-hmac(sha256)), sm2 256bit key, dh(公钥生成，和生成共享秘钥) x25519/x448
+getopt_long  1
+
+/proc/irq/irq_id/xxx
+/proc/pid/xxx/
+crypto ahash
+sm2
+dh
+vscode ##
+linux dbus
+
+bit map
+xarray
+open share lib problem
+share lib name
+如何写一个openssl engine
+如何用automake组织一个项目
+openssl 异步机制分析
+
+/proc/vmstat
+migratepages分析
+/proc/irq/说明, 结合pci的msi_irqs
+linux线程编程             xx
+taskset和线程的绑定？     xx
+/proc/sys/vm/overcommit?
+Linux全部系统调用分析(先内存相关)(配合怎么给linux加系统调用?)
+sm2相关算法
+区块链基础逻辑？
+RISC-V spec
+Linux CAP_SYS权限
+qemu里完成模拟一个设备
+shell wait
+write a qemu dma engine device
+qemu irq
+qemu cpu
+kernel kvm
+sva process kill logic
+glib g_hash_table  #
+rv s39页表结构  #
+BBML的逻辑梳理  #
+smmu无锁cmdq
+qemu add pci cap  #
+qemu qom          #
+qemu add trace    #    need update
+qemu的smmuv3的基础逻辑/pasid支持  #
+qemu mem
+fs vfs
+vim_note #
+glib opt #
+qemu dynamic attribute #
+vim internal search vim /xx/ **/*.[ch] vim以文件为基础，vim直接保存到文件，从文件中load，vim ab代码缩写，makefile出错反向cfile到原文件，cn
+minifs outside repo build logic   #
+qemu smmu(add pasid logic) #
+rv asid logic
+atc detail analysis #
+qemu build system  #
+priority q #
+build rootfs modify 1. format, 2, devmmu的依赖的配置方式
+viommu构架分析
+
+目录式缓存一致性的设计
+SIMD提高性能的原因
+GPU硬件基本构架
+Linux kernel对barrier的讲解文档
+CPU微架构使用store buffer的原因，除了store的时候不等invalid ack返回就把数据存在store buffer里的原因。
+
+cmake #
+mock  #
+iommu reserv region/MSI
+qemu tcg and exec               #
+rv指令分析：跳转指令		#
+qemu tcg load/store缺页         #  need to do
+qemu kvm模型    
+qemu atomic互斥区
+qemu helper函数的实现
+
+ global TCGv存在cpu里，TCGTemps存在TCGContext里，TCGContext是tb执行的时候动态
+ 生成的。atomic互斥区只锁了tb执行，没有锁翻译。chained TB有可能一直chained。
+ goto_tb只能是固定地址，lookup可以是动态变的。
+
+riscv entry.S代码分析		 #
+qemu irq      			 #
+中庸总结		         to do
+riscv系统构架总结 	 	 #
+内核初始化阶段初始页表		 #
+riscv DEBUG实现/ebreak的使用     #
+qemu monitor			 #
+qemu gpio
+gdb 看线程信息
+qemu 线程模型、怎么处理信号的
+qemu riscv timer		 # 补充tick timer初始化的部分 repost <------- #
+riscv两层qemu			 #
+linux kvm/riscv spec		 #
+
+qemu listener			 to do
+linux scheduler			 to do
+linux 不可屏蔽中断		 to do
+riscv pmu逻辑分析		 to do
+rcu使用和原理			 to do
+riscv vdso			 to do
+cpuhp逻辑分析			 to do
+link script			 to do
+
+riscv qemu地址翻译		 to do 1
+riscv reset逻辑分析		 to do 2
+riscv 虚拟化中断直通		 todo         #####
+riscv wfi			 to do
+linux/kernel/hung_task.c	 to do
+      kernel/watchdog.c
+my bios				 draft
+riscv 内存相关指令	         continue
+修改head.S里多核启动的分析，lottery只用在spinwait boot上
+opensbi里关于HSM的补充分析
+cpu初始化, online/offline	 to do      6
+ecall srst的分析		 to do
+
+hsm stop和cpu stop的同步行为	 to do
+linux调度的细节分析		 to do
+kvm虚拟机和host进程统一调度	 to do
+arm spec笔记			 continue
+
+rv全部异常定义分析		 to do
+ELF/PE启动			 continue(uboot EFI)
+unix编程艺术读书笔记		 todo
+csr寄存器整理		         todo
+qemu goto tb再分析		 c(制造tb清理) -- 自修改代码分析 5
+qemu tlb分析			 c
+qemu 内存模拟			 to do
+riscv aia			 c
+riscv pmp		   	 to do
+rv acess/dirty bit		 c
+user mode也可以跑动态链接程序    to do
+
+libglib meson静态交叉编译	 c
+qemu编译系统			 c
+rv call convertion		 c
+qemu IR分析			 c
+
+手动交叉编译qemu user mode	 to do
+
+splitwx				 to do
+
+current的值，以及内核线程current里mm的值   to do
+vstime/hstime		         to do
+riscv branch指令的整理		 #
+cpu rename			 #
+cpu bp			 	 doing
+cpu execute(侧重load/store lsu)  #
+
+cpu issue			 #
+cpu commit/rob			 #
+C++				 doing
+cpu flush			 #
+cpu mmu/cache/tlb		 #
+spinlock实现分析		 #
+协程的使用和原理		 #
+io_uring分析			 4. c
+
+qemu tlb同步逻辑	         to do
+pthread spinlock/mutex lock      to do
+用户态rcu lock			 to do
+
+arm casp指令			 #
+arm st64b/ld64指令		 #
+arm sevl/wfe/sev/wfi指令	 #
+arm customized instruction	 #
+rcu使用和原理			 c
+
+qemu helper函数中的store/load    #
+qemu 内存模拟			 doing: mmio也是用load/store访问的，相关逻辑怎么整合到load/store的模拟中，AS/MR/FV
+				 慢速路径里有io的入口，和AS/MR/RV等概念走到一起，但是memory还是没有和这些概念一起?
+				 所以，类似listener的概念只存在于kvm的内存模拟中？还是kvm中的io mmio模拟中？
+
+riscv float			 #
+inkscape逻辑空间		 #
+动态链接原理分析		 c
+qemu user mode不能跑多进程	 #
+qemu call IR实现分析		 c(遗留后端分析)
+手工拼指令的方法		 #
+用宏定函数			 #
+makefile高级用法		 #
+arm内存模型			 c
+ARM memory tag			 to do
+glib事件框架			 c idle的使用和实现逻辑
+
+userspace-rcu			 doing
+automake/autoconfig/autohead     #
+eventfd				 to do(线程之间/进程之间/用户态和内核之间通信)
+riscv vector			 to do
+SIMD的基本逻辑			 to do
+SIMT的基本逻辑			 to do
+阿姆达尔定理的测试逻辑		 #
+
+linux内存管理:
+ - ksm
+ - swap
+ - memory buddy  		 c
+ - memory migration		 to do
+ - memory compaction #
+ - memory reclaim(swap, direct)  doing
+ - memory pagecache #
+ - memory slab
+ - memory fault
+ - memory vma
+
+linux folois/arm contiguous bit  似乎folios只是软件管理比较方便了，但是folios怎么和
+伙伴系统融合，arm contiguous bit可以在非block的情况下，把一连续的小页合并成大一点
+页，并且tlb是一个，比如，在4K页下，可以把64K对齐的4K页合并起来，注意这逻辑里有很多
+软件配置错误的处理，以及access bit/dirty bit要处理的逻辑。怎么把folios和contiguous
+bit的独立逻辑整合起来? 注意，整block的大页，似乎天然就是一个block大页一个tlb的？
+
+多core ldxr + str可以唤醒么: 可以，唤醒有两种方法：1. snoop, 2. 硬件连线。感觉
+snoop的方式就可以snoop到多个core。
+
+python搞个系列    交互(sys)/正则(re)/画图(matplotpy)  to do
+qemu vcpu hotplug
+qemu 虚拟机热迁移
+集合论/二元关系/全序关系/偏序关系/哈斯图	      to do
+herdtools/cat/litmus test			      c
+qemu tcg barrier模拟				      c
+perf框架					      c
+cache实现很多问题				      c
+easyperf笔记					      c
+vector					   	      c
+arm64 内存屏障					      to post
+arm64 FEAT_ETS2					      to post
+kernel damon					      c
+kernel 内存回收					      c
+uaccess代码分析，看起来5.12的代码可以		      to do	
+处理非对齐的情况，不清楚怎么处理fault。               c
+ARM PMU SPE基本硬件逻辑				      to do *
+memory migration		 		      to do
+rmap						      to do *
+
+linux进程调度：
+ - CFS                                    doing
+ - 调度域和调度组                         c
+ - 线程迁移/负载均衡                      c  #
+ - numa balance 	                  c
+ - load计算				  c  #
+
+ - group sched的逻辑			  todo
+ - 调度带宽限制				  todo
+
+ - nohz的逻辑				  todo
+ - riscv cache(CMO)		          todo
+
+ per-cpu 			          todo
+ 统计系统里负载均衡中跨numa的次数         todo
+ perf software event的实现(migration)	  todo
+ softirq				  todo
+ cpu load显示/线程迁移显示		  todo
+ 最底层的调度域对么？
+
+ wfe/wfi qemu实现qemu atomic分析          c
+ rcu代码分析				  todo
+ 模块之间并发一般处理逻辑		  todo
+
+ARM64:
+
+ - 中断异常定义(定义和委托情况            
+ - 虚拟化控制基础逻辑                    
+ - 系统寄存器基础逻辑			  
+ - GIC基础逻辑                            
+ - 系统指令基础逻辑: TLB/cache/barrier
+ - VMMA基础定义: 页表
+ - PMU基础逻辑
+ - Timer基础逻辑(以及高精度定时器)        
+
+ - ARM NMI中断/ARM SP的逻辑 	          c
+ - NMI Watchdog hard lockup		  c
+ - softlockup/hardlockup机制/migration    c
+
+Linux内核:
+writeback的逻辑			          c
+
+cpu hotplug流程(setend模拟)		  #
+kernel_build
+文件系统和存储简介
+page_cache的实现			  todo
+sync/syncfs
+block层
+blktrace/blkparse/btt使用和原理
+nvme和disk
+lsscsi - 控制器和盘的关系
+arm copy_to/from_user    #
+linux内核alternative机制 # 5
+block设备驱动
+mpam基本逻辑
+快速跟踪函数调用栈(gdb/ftrace/strace/用户态backtrace)
+
+存储性能测试工具：iostat/blktrace(blkparse/btt)/sar/fio/vmstat/proc_meminfo/proc_vmstat
+coresight/ETM基本逻辑
+
+虚拟化：
+
+ - 网络虚拟化，virtio-net			 todo
+ - 存储虚拟化，virtio-blk/scsi?		         todo
+ - qemu virtio的使用方法
+ - 虚拟化qemu上层的组件，libvirt，virsh等        todo
+ - 虚拟化热迁移的基本逻辑？		         todo #
+ - arm no-VHE的逻辑			         todo #
+
+内核hack的relaxation VHE/VHE下arm的启动路径EL2->EL1->EL2/arm qemu内核启动地址/
+pKVM的基本逻辑					 todo
+CCA/realm基本逻辑				 todo
+rcu stall分析
+
+arm qemu生成ACPI表格
+
+硬狗的逻辑
+
+arm CPU ID regs and errata的基本逻辑		       c
+
+ARM CNP特性
+ARM 内核启动流程分析
+大页会缺页么？
+malloc.hugetlb
+
+死锁检测blog
+ARM continue bit
+KCSAN
+KASAN
+x86 cpu model					         done
+
+GICv4与GICv3，host是GICV4，CPU利用率，绑核。
+ARM HCR.IMO 中断路由
+
+sve-stress/iperf/fio/memtester				 done
+pv virt逻辑/pv preempt/pv spinlock/pv steal time         todo
+
+linux/gic host中断体系构架				 todo
+cppc cpu capability的逻辑				 todo
+
+vm cache/pptt/clidr pptt表定义/acpi生成代码/内核解析代码/qemu呈现总逻辑，和命令行
+kvm vcpu cpu id初始化
+
+vgic/gic its命令补充
+kvm clidr结合的逻辑。ctr			       todo
+kprobe分析和使用
+
+ipi_benckmard分析				       todo
+kvm unit test					       c
+qemu命令行总结				               c
+ARM GIC硬件逻辑                                        c
+linux内核arm64 kvm虚拟化基本逻辑		       c
+WFI trap/WFE delay trap                                c
+arm vtimer		                               c
+vSGI		                                       c
+vLPI虚拟化/vfio/vCPU到物理CPU的映射		       c
+linux online/offline cpu逻辑			       c
+Linux IPI相关的基本逻辑                                c
+
+基于iommufd的vSVA基本逻辑/multiple vsmmu               todo  ### 4
+kvm debug/kvmto/perf kvmqemu -name VM,debug_threads=on
+arm spe硬件逻辑，可以具体干什么		               doing
+qemu vfio代码分析/怎么给guest呈现pci设备的config空间和BAR空间的/中断
+vm live migration/heterogenous: 基本逻辑/用法/trace    doing #
+virsh						       todo
+qemu gic代码分析
+cpu mode patch
+qemu生成acpi表的逻辑，MADT(gic)/PPTT(cache)/cppc
+
+vNMI
+qemu vfio/vLPI中断/热迁移/config和BAR空间模拟/iommufd综合
+kabi
+twed/wfxt/软件延时 #
+qemu cmdline #
+steal time #
+虚拟化和调度/虚拟化关中断和关抢占                doing
+arm nmi watchdog/cppc
+
+kvmtool构架分析
+vcpu上下线时gic的逻辑				 todo       ### 1
+kvm调试整理
+
+
+irqbalance分析/中断亲和性配置
+
+
+---- iommufd系列文章 ----
+
+
+---- vfio系统 -----
+
+
+---- 热迁移系列 ----
+1. 基本逻辑                                 ### 2
+2. vfio热迁移基本逻辑                                   <---
+3. GIC热迁移基本逻辑        doing
+4. SMMU热迁移基本逻辑       doing
+5. 标脏处理：kvm fault基础/hdbss/AFdirtybit/SMMUhttu       ### 3
+
+---- 虚拟化内存管理 ----
+1. 基本逻辑
+2. S2FWB
+3. vfio
+
+NMI虚拟化逻辑补齐		   doing
+
+内核启动打印，在什么时候有启动打印
+
+内核IPI					         doing
+kvm self test				         doing
+gicv5						 doing
+
+qemu vfio/pci
+cpuhp/pm notifier
+
+perf bench futex wake
+arm timer
+qemu arm启动逻辑   再整理下
+qem_arm_kvm
+uncore pmu
+
+kvm pmu模拟逻辑					 c   ### 5
+iommufd vsmmu                                    doing
+linux timer内核代码分析                          todo
+host kvm各种异常向量分析			 doing
+mpam分析					 doing
+
+qemu模拟ARM构架综合分析(qemu内存管理)            doing
+虚拟化热迁移的基本
+hdbss/热迁移                                     doing
+跨代热迁移逻辑整理   	                         doing
+

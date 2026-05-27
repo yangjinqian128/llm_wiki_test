@@ -1,0 +1,178 @@
+-v0.1 2025.11.15 Sherlock init
+-v0.2 2026.01.15 Sherlock ...
+-v0.3 2026.01.19 Sherlock ...
+-v0.4 2026.01.20 Sherlock ...
+-v0.5 2026.02.01 Sherlock ...
+
+简介: 本文收集整理ARM64中和HDBSS相关的硬件逻辑，顺带也记录下硬件access flag和dirtiy bit的逻辑。
+
+
+基本逻辑
+---------
+
+ID_AA64MMFR1_EL1.HAFDBS是HDBSS的能力定义域段，多个特性复用这个域段。总结起来如下：
+```
+   1     HAFDBS        硬件更新page和block的access flag
+   
+   2     HAFDBS        硬件更新dirty state
+   
+   3     HAFT          硬件更新table的access flag
+   
+   4     HDBSS         硬件把脏页写到指定的软件buffer
+```
+硬件更新access flag，要注意下HAFT的逻辑。
+
+页表里的DBM bit表示是否开启硬件更新dirty state。S2AP[1]表示是否可写，S2AP[0]表示
+只读，对于S2翻译的情况，当DBM没有配置时，对应的读写权限不对的时候，会触发异常。
+
+当DBM配置为1时，不管S2AP[1]/S2AP[0]的配置，写一个地址会导致S2AP[1]为1，且不触发
+异常。所以，DBM相当于增加可写并打开硬件标脏，S2AP[1]的含义变成dirty state。
+
+所以，在启动硬件标脏时，ARM对于写定义了三个状态: non-writable, writable-clean和writable-dirty。
+第一个是不可写(DBM为0且S2AP[1]为0），第二个是可写非脏，第三个是可写已脏。
+
+S1的读写权限由AP[2]/AP[1]控制，和如上S2的控制基本类似。
+
+HDBSS在如上的基础上，硬件在页表上标记脏页的时候，可以自动把脏页信息写入预先分配
+的软件buffer。
+
+QEMU内存标脏
+-------------
+
+QEMU中内存标脏的核心实现可分为几个部分：通过MemoryListener回调机制
+初始化标脏、通过KVM_SET_USER_MEMORY_REGION配置写保护、以及通过
+KVM_GET_DIRTY_LOG获取脏页。
+
+1. 初始化标脏流程
+
+当用户使用迁移功能时，QEMU会通过memory listener机制启动脏页追踪：
+
+```
+kvm_log_start (MemoryListener callback)
+  +-> kvm_section_update_flags
+        +-> kvm_slot_update_flags
+              +-> kvm_slot_init_dirty_bitmap    // 分配脏页位图
+              +-> kvm_set_user_memory_region   // 配置到KVM
+```
+
+关键数据结构KVMSlot包含：
+- dirty_bmap: 脏页位图指针
+- memory_size: 槽大小
+- flags: 包含KVM_MEM_LOG_DIRTY_PAGES标志
+
+kvm_slot_init_dirty_bitmap()会按页面对齐分配位图，大小为：
+memory_size / qemu_real_host_page_size / 8 字节。
+
+2. 写保护和大页拆分
+
+kvm_set_user_memory_region()调用KVM_SET_USER_MEMORY_REGION2
+ioctl将内存槽注册到KVM。flags中可以通过KVM_MEM_READONLY设置
+只读属性，配置写保护。
+
+当虚拟机写一个被保护的页时，会触发KVM_EXIT_MMIO退出，
+进入QEMU的page fault处理逻辑。
+
+3. 脏页标记
+
+KVM中触发标脏的接口是ioctl KVM_SET_USER_MEMORY_REGION，
+其中flag带KVM_MEM_LOG_DIRTY_PAGES参数。
+
+QEMU中使用软件标脏的逻辑是先配置S2写保护，写S2触发
+S2 page fault进入记录脏页。
+
+4. 获取脏页
+
+QEMU中使用kvm_slot_get_dirty_log()获取脏页：
+
+```
+kvm_slot_get_dirty_log()
+  +-> kvm_vm_ioctl(s, KVM_GET_DIRTY_LOG, &d)
+        +-> d.dirty_bitmap = slot->dirty_bmap
+```
+
+这个调用会把内核中的脏页位图同步到QEMU的slot->dirty_bmap中。
+
+然后使用kvm_slot_sync_dirty_pages()同步：
+```
+kvm_slot_sync_dirty_pages()
+  +-> physical_memory_set_dirty_lebitmap(slot->dirty_bmap, start, pages)
+```
+
+physical_memory_set_dirty_lebitmap()会把位图复制到全局的dirty_memory
+blocks中，包含DIRTY_MEMORY_VGA和DIRTY_MEMORY_MIGRATION。
+
+5. KVM Dirty Ring
+
+新版本KVM支持dirty ring机制，提供更高效的脏页追踪：
+- kvm_dirty_ring_mark_page(): 在dirty ring中标记脏页
+- 通过KVM_DIRTY_GFN_F_DIRTY标志判断页是否脏
+
+ Dirty ring相关ioctl:
+- KVM_GET_DIRTY_RING_ROICES
+- KVM_EMULATE_DIRTY_RING
+
+KVM内存标脏逻辑
+----------------
+
+当前KVM内存标脏有两个接口，一个基于bitmap，使用ioctl KVM_GET_DIRTY_LOG和
+KVM_CLEAR_DIRTY_LOG，一个基于map到用户态的dirty log ring，使用KVM_CAP_DIRTY_LOG_RING
+标记这个功能。
+
+看下bitmap的逻辑。基本数据结构：struct kvm_memory_slot -> dirty_bitmap
+
+看下QEMU/KVM利用stage 2标脏的基本逻辑。
+
+KVM触发标脏的接口是ioctl KVM_SET_USER_MEMORY_REGION，其中flag要带KVM_MEM_LOG_DIRTY_PAGES
+参数，这个接口也是注册虚机内存的接口。这个接口做的主要工作是配置写保护和大页拆小
+页，大概逻辑如下：
+```
+kvm_vm_ioctl with KVM_SET_USER_MEMORY_REGION
+  +->  kvm_vm_ioctl_set_memory_region
+    ...
+      +-> kvm_commit_memory_region
+        +-> kvm_arch_commit_memory_region
+          +-> kvm_mmu_wp_memory_region
+          +-> kvm_mmu_split_huge_pages        <-- 拆大页
+```
+
+KVM中使用软件标脏的逻辑是先配置S2写保护，写S2触发S2 page fault进入KVM记录脏页。
+大概流程是：
+```
+kvm_handle_guest_abort
+  +-> gfn_to_hva_memslot_prot(memslot, gfn, &writable)  <-- 得到是否可写
+  +-> user_mem_abort
+        /* 为什么可以这样标记？*/
+    +-> logging_active = memslot_is_logging   <-- 判断是否在标脏
+    +-> if (writable)                         <-- 加上可写，在后面拿走脏页信息后
+           prot |= KVM_PGTABLE_PROT_W             才重新加上写保护
+    +-> kvm_set_pfn_dirty                     <-- 标记脏页
+    +-> mark_page_dirty_in_slot
+```
+
+KVM ioctl KVM_GET_DIRTY_LOG的逻辑大概是：
+```
+ioctl KVM_GET_DIRTY_LOG
+  +-> kvm_vm_ioctl_get_dirty_log
+    +-> kvm_get_dirty_log_protect                   <-- 加kvm->slots_lock
+      +-> kvm_arch_sync_dirty_log                   <-- ?
+      +-> kvm_arch_mmu_enable_log_dirty_pt_masked   <-- 加kvm->mmu_lock
+        +-> stage2_wp_range           <-- 写保护
+	+-> kvm_mmu_split_huge_pages  <-- 大页拆小页？
+          /* ? */
+      +-> kvm_flush_remote_tlbs_memslot
+      +-> copy_to_user
+```
+
+kvm_vcpu_mark_page_dirty(vcpu, pfn)是脏页的记录接口，底层用dirty ring或者dirty
+bit map记录脏页。
+
+HDBSS软件支持
+--------------
+
+HDBSS的软件buffer是per-vCPU的，软件需要为每个vCPU分配相应的HDBSS buffer，在vCPU
+上位的时候挂上buffer，在vCPU下位的时候保存状态，处理buffer溢出的情况。
+
+需要在适当的时候把HDBSS buffer里的信息copy到KVM dirty bit map，这里就可以使用如
+上的kvm_vcpu_mark_page_dirty接口。
+
+目前，HDBSS的KVM支持还是上传中，具体逻辑可以参考[这里](https://lkml.org/lkml/2025/11/21/560)。

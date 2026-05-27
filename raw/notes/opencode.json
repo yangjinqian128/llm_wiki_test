@@ -1,0 +1,13 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": ["AGENTS.md"],
+  "skills": {
+    "paths": [".opencode/skills"]
+  },
+  "agent": {
+    "knowledge-assistant": {
+      "description": "Knowledge base问答助手。当用户询问技术问题时使用，例如询问KVM、ARM64、SMMU、migration、QEMU、page tables、DMA、IOMMU、VFIO、RISC-V等主题，或者用户想查询知识库中的内容时自动触发。关键词包括\"什么是\"、\"如何\"、\"请介绍\"、\"帮我查询\"等。",
+      "mode": "subagent"
+    }
+  }
+}

@@ -1,0 +1,244 @@
+-v0.1 2025.7.5   Sherlock init
+-v0.2 2025.7.9   Sherlock ...
+-v0.3 2025.7.10  Sherlock ...
+-v0.4 2025.11.15 Sherlock ...
+-v0.5 2025.11.19 Sherlock ...
+
+简介：本文分析基于iommufd实现的vSMMU的基本逻辑。
+
+
+基本逻辑
+---------
+
+Linux内核vSMMU的方案现在都基于iommufd来搞，vSMMU的基本逻辑可以参考[这里](https://wangzhou.github.io/vSVA逻辑分析/)。本文
+的分析重点是把iommufd的逻辑打开，结合qemu从上到下完整梳理其中的逻辑。现在内核相关
+的代码基本上已经在主线(v6.16)，QEMU相关的代码基本上被整合到OpenEuler的[qemu仓库](https://gitee.com/openeuler/qemu.git)，
+分支是qemu-8.2.0。
+
+内核相关逻辑
+-------------
+
+iommufd的对外接口在内核文档里有完整的描述，位置在Documentation/userspace-api/iommufd.rst。
+目前，既支持使用新接口使用IOMMUFD，又支持使用VFIO原来的接口使用IOMMUFD，后者就是
+用IOMMUFD的实现代替vfio container的实现。
+
+新接口对应的内核配置项是VFIO_DEVICE_CDEV，设备和VFIO驱动绑定的时候会创建一个新的
+字符设备，后续和用户态的交互都使用这个新字符设备，它的路径是/dev/vfio/devices/vfioN。
+创建新字符设备的代码逻辑大概是：
+```
+vfio_pci_probe -> vfio_pci_core_register_device -> vfio_register_group_dev ->
+__vfio_register_dev -> vfio_device_add
+```
+这个字符设备对应的file_operations定义在drivers/vfio/vfio_main.c: vfio_device_fops，
+其实就是原来VFIO从vfio_group得到的匿名文件的fops，两者都是VF在用户态的代表文件。
+
+使用IOMMUFD支持原来的vfio container对应的配置项是IOMMUFD_VFIO_CONTAINER。
+
+内核相关数据结构
+-----------------
+
+todo: ...
+
+qemu相关数据结构
+-----------------
+
+VFIOContainerBase / VFIOIOMMUFDContainer / VFIOAddressSpace
+
+VFIOIOMMUClass
+
+VFIODevice / VFIOPCIDevice / PCIDevice
+
+IOMMUFDBackend
+
+HostIOMMUDeviceClass / HostIOMMUDeviceIOMMUFDClass
+HostIOMMUDevice / HostIOMMUDeviceIOMMUFD
+  HostIOMMUDeviceCaps
+
+PCIBus / SMMUDevice / SMMUViommu
+
+
+qemu相关逻辑
+-------------
+
+qemu里关于iommufd的逻辑基本上可以用vfio_realize里的逻辑串起来，vfio_realize是实例
+一个vfio设备最后阶段要做的处理。
+```
+vfio_realize
+  +-> vfio_attach_device
+        /*
+         * 这里的VFIOIOMMUClass是TYPE_VFIO_IOMMU_IOMMUFD，对应类的初始化函数挂
+         * 的回调是: iommufd_cdev_attach，语意是VF设备和IOMMU绑定。
+         */
+    +-> ops->attach_device   // iommufd_cdev_attach
+      +-> iommufd_cdev_getfd               <-- 1. open vfio cdev，返回vfio设备fd
+
+      +-> iommufd_cdev_connect_and_bind
+        +-> iommufd_backend_connect        <-- 2. open /dev/iommu，返回iommfd fd
+        +-> iommufd_cdev_kvm_device_add
+        +-> ioctl(vfio fd, VFIO_DEVICE_BIND_IOMMUFD, ...)  <-- 3. VF cdev和iommufd绑定，返回devid
+                                                   
+      +-> iommufd_cdev_attach_container    <-- container已存在的，就直接attach，并跳过如下流程
+          
+      +-> iommufd_backend_alloc_ioas       <-- 4. alloc ioas, 首次创建containers，返回ioas_id
+        +-> ioctl(fd, IOMMU_IOAS_ALLOC, ...)
+
+      +-> iommufd_cdev_attach_container
+        +-> iommufd_cdev_autodomains_get   
+             /*
+              * alloc hwpt的入参有：devid, ioas_id, ioctl的fd是iommufd，
+              * IOMMU_HWPT_DATA_NONE，如果vfio device的hostIOMMUDevice有
+              * IOMMU_HW_CAP_DIRTY_TRACKING，也把对应硬件标脏的标记加上，这里对应
+              * SMMU的话，可能是SMMU HTTU这个特性。输出hwpt_id。
+              */
+          +-> iommufd_backend_alloc_hwpt    <-- 5. alloc hwpt
+              /* attach的入参是：vfio fd, hwpt_id */
+          +-> iommufd_cdev_attach_ioas_hwpt <-- 6. attach iommufd hwpt
+            +-> ioctl(vbasedev->fd, VFIO_DEVICE_ATTACH_IOMMUFD_PT, &attach_data)
+
+      +-> iommufd_cdev_ram_block_discard_disable ?
+
+      +-> iommufd_cdev_get_info_iova_range ?
+
+         /*
+          * 注册container地址空间的listener，region_add/del里会做dma map/unmap。
+          * listener中的log_global_start/stop、log_sync和DMA内存标脏有关系，热
+          * 迁移标脏迭代中估计会调用每个memory listener中的标脏相关的会调。
+          *
+          * 基于iommufd的标脏估计和VFIOIOMMUClass里的set_dirty_page_tracking、
+          * query_dirty_bitmap会调有关系，定义在hw/vfio/iommufd.c。
+          *
+          * vfio_listener_log_sync -> vfio_sync_dirty_bitmap -> vfio_get_dirty_bitmap ->
+          * vfio_container_query_dirty_bitmap -> iommufd_query_dirty_bitmap
+          * 其中vfio_listener_log_sync为listener中的log_sync, iommufd_query_dirty_bitmap
+          * 为iommufd的对应会调。
+          *
+          * 迁移子系统开启关闭标脏的点是：ram_init_bitmaps和ram_save_cleanup。
+          * 每一轮获取脏页的点在：migration_bitmap_sync?
+          *
+          * DMA map的入口也在listener的回调中: vfio_listener_region_add ->
+          * vfio_container_region_add -> vfio_container_dma_map ->
+          * iommufd_cdev_map(如果使用iommufd) -> iommufd_backend_map_dma
+          * 可见实际使用的是iommfd的ioctl(..., IOMMU_IOAS_MAP, ...)，带的参数是
+          * ioas_id、va、iova和size。
+          *
+          * 按道理讲，内核应该通过va找见对应的VMA，找见对应host上的VMA，然后做
+          * CPU侧GPA到PA的映射。如果CPU测还没有做map，没有找见对应的逻辑。
+          */
+      +-> memory_listener_register
+      
+      +-> ioctl(devfd, VFIO_DEVICE_GET_INFO, ...)
+
+  +-> vfio_populate_device
+
+      /* 第二个参数是Host iommu device，信息在哪里得到的？*/
+  +-> pci_device_set_iommu_device(pdev, vbasedev->hiod, ...)
+        /*
+         * 回调函数定义在hw/arm/smmu-common.c: PCIIOMMUOps smmu_ops
+         * 在smmu_base_realize里注册到PCIBus上: pci_setup_iommu
+         * 
+         * 此处的语意给这个PCI设备关联对应的iommu设备。
+         */
+    +-> iommu_bus->iommu_ops->set_iommu_device // smmu_dev_set_iommu_device
+      +-> smmu_dev_attach_viommu
+            /* 对于已经存在hwpt的，attach下就好了？*/
+        +-> host_iommu_device_iommufd_attach_hwpt
+        +-> iommufd_backend_alloc_hwpt  <--- 7. alloc S2 hwpt，如何做replace？
+        +-> host_iommu_device_iommufd_attach_hwpt  <--- 8. attach hwpt
+	      /* 这个回调？*/
+	  +-> host_iommu_device_iommufd_vfio_attach_hwpt
+	    +-> iommufd_cdev_attach_ioas_hwpt
+              +-> ioctl(vbasedev->fd, VFIO_DEVICE_ATTACH_IOMMUFD_PT, &attach_data)
+        +-> iommufd_backend_alloc_viommu  <--- 9. create vSMMU
+
+        +-> iommufd_backend_alloc_hwpt  <--- 10. abort_data?
+        +-> iommufd_backend_alloc_hwpt  <--- 11. bypass_data?
+
+        +-> host_iommu_device_iommufd_attach_hwpt  <--- bypass_data?
+
+```
+
+vSMMU运行时调用IOMMUFD的逻辑，1. STE/CD install，2. TLB/CONFIG invalidate。
+
+smmu_hwpt_invalidate_cache    没有地方调用？
+  +-> iommufd_backend_invalidate_cache
+
+smmu_viommu_invalidate_cache
+  +-> iommufd_backend_invalidate_cache
+        /* 注意，这个接口不感知具体命令语意，cmd直接送到最底下的SMMUv3驱动 */
+    +-> ioctl(fd, IOMMU_HWPT_INVALIDATE, ...)
+
+host内核对应的实现arm_vsmmu_cache_invalidate
+
+smmuv3_install_nested_ste
+  +-> iommufd_backend_alloc_vdev
+
+  +-> smmu_dev_install_nested_ste
+    +-> iommufd_backend_alloc_hwpt  没有到硬件上？
+    +-> host_iommu_device_iommufd_attach_hwpt
+          /* idev是HostIOMMUDeviceIOMMUFDClass，初始化在hw/vfio/iommufd.c */
+      +-> idev->attach_hwpt     // host_iommu_device_iommufd_vfio_attach_hwpt
+        +-> ioctl(..., VFIO_DEVICE_ATTACH_IOMMUFD_PT, ...)
+
+  +-> create_fault_handlers         <--- 支持vSMMU io fault
+
+VFIO_DEVICE_ATTACH_IOMMUFD_PT内核态的支持在drivers/vfio/vfio_main.c: vfio_df_ioctl_attach_pt。
+
+vfio_df_ioctl_attach_pt
+      /*
+       * 具体回调定义在drivers/vfio/vfio_pci.c: vfio_pci_ops, 作为vfio device文
+       * 件ioctl的拓展操作函数。
+       */
+  +-> device->ops->attach_ioas // vfio_iommufd_physical_attach_ioas
+        /* drivers/iommu/iommufd子模块的API */
+    +-> iommufd_device_attach
+      +-> iommufd_device_change_pt
+        +-> iommufd_device_do_replace
+          +-> iommufd_hwpt_replace_device
+            ...
+                 /*
+                  * 回调定义在arm-smmu-v3-iommufd.c: arm_smmu_nested_ops, 初始
+                  * 化的点是arm_vsmmu_alloc->iommufd_viommu_alloc
+                  *
+                  * 应该是把vSMMU上的CD地址(IPA)直接写到物理STE的的CD地址域段了。
+                  */
+              +-> domain->ops->attach_dev // arm_smmu_attach_dev_nested
+                +-> arm_smmu_attach_prepare
+                +-> arm_smmu_make_nested_domain_ste
+                +-> arm_smmu_install_ste_for_dev
+                +-> arm_smmu_attach_commit
+  
+iommufd标脏的逻辑
+------------------
+
+todo: ...
+
+1. 内核框架
+2. 内核SMMU HTTU支持
+3. qemu适配
+
+
+vSMMU支持IO fault的逻辑
+------------------------
+
+smmuv3_install_nested_ste
+      /*
+       * 目前的hack实现是，和内核态的接口使用io_uring, qemu中起两个线程，一个用
+       * 来poll host内核发上来的IO page fault请求，vSMMU拿到请求后，在vSMMU里模
+       * 拟报上来的event；一个用来给内核发response。
+       */
+  +-> create_fault_handlers         <--- 支持vSMMU io fault
+    +-> io_uring_queue_init
+    +-> qemu_thread_create(...,  read_fault_handler, ...)
+    +-> qemu_thread_create(...,  write_fault_handler, ...)
+
+
+vSMMU热迁移的逻辑
+------------------
+
+todo: ...
+
+
+备注
+-----
+
+[1] HiSilicon的QEMU github仓库也有整合的代码，分支为qemu-8.2.0-vSVA-backport-wip。

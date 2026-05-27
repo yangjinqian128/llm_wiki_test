@@ -1,0 +1,87 @@
+-v0.1 2024.4.26  Sherlock init
+-v0.2 2024.4.30  Sherlock 补充相关逻辑
+-v0.3 2025.7.4   Sherlock ...
+-v0.4 2025.11.27 Sherlock ...
+
+
+简介：本文梳理ARM64中不可屏蔽中断(NMI)的基本逻辑。
+
+
+硬件基本逻辑
+-------------
+
+ARM新增加了NMI中断，GIC和CPU的逻辑做了相应的调整。ARM网站的[这篇](https://community.arm.com/arm-community-blogs/b/architectures-and-processors-blog/posts/a-profile-non-maskable-interrupts)文档对此做了介绍。
+
+对于GIC，增加一种优先级更高的中断，对应的中断发给CPU时，应该要携带相关信号，这个
+信号告诉CPU，当前是一个NMI。
+
+NMI并不是完全不能被mask的，所以在CPU一层，ARM定义了两种针对NMI做mask的方法。
+
+一种是在PSTATE寄存器里新加了AllInt的bit，这个bit可以控制所有中断，包括NMI中断的
+mask。这个bit和PSTATE.I的逻辑是基本一致的，只不过把控制范围增加上NMI。这种mask的
+逻辑和如下第二种逻辑是正交的。
+
+另一种和ELx_SP的寄存器使用有关系(todo: 还不明白为什么ARM在不同EL要使用不同的SP,
+RV应该是只有一个SP？)。ARM的ELx_SP特性的逻辑是，当PSTATE.SP为0时，各个EL都是用
+SP_EL0，当PSTATE.SP为1时，各个EL使用SP_ELx。
+
+基于如上的逻辑，如果当前是使用各个EL自己的SP_ELx(dedicated SP_ELx)，NMI就是mask
+的，当切到SP_EL0做栈指针时，NMI没有被mask。
+
+对于如上两种NMI mask的逻辑，中断或异常进入和退出时，各种中断被mask的逻辑依然存在。
+中断或异常进入和退出时，为了防止新的中断进来破坏之前要保存的上下文，硬件是自动关
+中断的。
+
+GIC spec上规定支持NMI的中断类型有PPI/SGI/SPI，LPI是不支持NMI的。在支持NMI的GIC
+版本上，这里的关系有点绕，GICv3.3/GICv4.2都支持NMI。首先，GICv3.x相当于GICv3的一
+个stable分支，GICv4.x支持虚拟中断直通特性，ARM定义GICv3.3支持NMI，是说在GICv3.2
+的基础上支持NMI，其中vNMI支持是说注入的PPI/SGI/SPI支持NMI，GICv4.2支持NMI，是说
+直通的vSGI支持NMI。有意思吧，这种留个stable版本的定义方式感觉主要是为了只支持GICv3
+的系统。
+
+NMI相关系统寄存器
+------------------
+
+core相关的寄存器：
+
+ID_AA64PFR1_EL1.NMI   表示系统是否支持NMI。
+SCTLR_ELx.NMI         表示系统是否enable NMI。
+SCTLR_ELx.SPINTMASK   表示是否使用如上的第二种mask NMI的方式。
+ICC_NMIAR1_EL1        NMI对应的IAR寄存器。
+
+GIC相关的NMI寄存器有:
+GICD_INMIR	      配置对应的SPI中断是否是NMI中断。
+GICR_INMIR            配置对应的PPI/SGI中断是否是NMI中断。
+
+NMI虚拟化相关的逻辑
+--------------------
+
+基本上就是LR注入或者vSGI的时候带上NMI这个标记，对应的硬件支持方式是LR寄存器上增加
+NMI标记位，vSGI的情况是先用ITS vSGI命令把NMI这个标记配置给硬件，保存在vLPI pending
+table的vSGI的NMI预算，后续vSGI直通的时候就可以带上这个信息。
+
+
+软件支持
+----------
+
+目前，ARM上host和虚机里的NMI支持都还没有进入主线，host NMI的补丁可以参考[这里](https://lwn.net/Articles/914838/)。
+Guest NMI的补丁可以参考[这里](https://gitee.com/openeuler/kernel/issues/I97WGU?skip_mobile=true)。
+
+Linux内核驱动使用request_percpu_nmi或者request_nmi申请NMI中断。
+
+目前，ARM里使用NMI的只有PMU中断和基于PMU的hardlock up，关于hardlock up的基本逻辑
+可以参考[这里](todo...)。
+
+NMI使用注意事项
+----------------
+
+从如上的分析中可见，CPU并不是任何时候都可以响应NMI中断，除了程序员主动控制mask掉
+NMI，在中断或异常进入和退出时，任何中断包括NMI中断都是被mask的。
+
+CPU mask掉普通中断的时候(配置PSTATE.I)，CPU是可以响应NMI的，这就需要系统程序员小
+心编程，避免因使用NMI而带来问题。
+
+Pseudo NMI
+-----------
+
+todo: ...
