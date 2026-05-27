@@ -1,0 +1,221 @@
+{
+  "main": {
+    "id": "ee721a687286eb40",
+    "type": "split",
+    "children": [
+      {
+        "id": "07ba8ffa5114e3ea",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "036879ace14ced1a",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "内存管理.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "内存管理"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "574076893c93adb1",
+    "type": "split",
+    "children": [
+      {
+        "id": "73ffd52696f83fa9",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "c1e7ee9bccaf59cd",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "文件列表"
+            }
+          },
+          {
+            "id": "9397598e1f9b6d4f",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "搜索"
+            }
+          },
+          {
+            "id": "ef0b2381a6acf1d0",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "书签"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "0d824cd0bcb0786a",
+    "type": "split",
+    "children": [
+      {
+        "id": "6ab97ba8631e77b2",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "07aa9bd7759bd1e9",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "内存管理.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "内存管理 的反向链接列表"
+            }
+          },
+          {
+            "id": "40df8f422cb45b03",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "内存管理.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "内存管理 的出链列表"
+            }
+          },
+          {
+            "id": "c32e1a2addb4382d",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "标签"
+            }
+          },
+          {
+            "id": "b49ce633e998c414",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "添加笔记属性"
+            }
+          },
+          {
+            "id": "91e2406350f42836",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "内存管理.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "内存管理 的大纲"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:打开快速切换": false,
+      "graph:查看关系图谱": false,
+      "canvas:新建白板": false,
+      "daily-notes:打开/创建今天的日记": false,
+      "templates:插入模板": false,
+      "command-palette:打开命令面板": false,
+      "bases:新建数据库": false
+    }
+  },
+  "active": "036879ace14ced1a",
+  "lastOpenFiles": [
+    "index.md",
+    "超标量处理器.md",
+    "并发编程枢纽.md",
+    "虚拟地址Cache.md",
+    "虚机reboot流程.md",
+    "kvmtool地址布局.md",
+    "异常向量表.md",
+    "Cache一致性.md",
+    "CPU架构枢纽.md",
+    "内存管理枢纽.md",
+    "虚拟化枢纽.md",
+    "SBI.md",
+    "硬件加速器.md",
+    "ACPI概述.md",
+    "RISC-V.md",
+    "cache一致性 (1).md",
+    "对称加密.md",
+    "调度组.md",
+    "等待队列.md",
+    "ABA问题.md",
+    "火焰图.md",
+    "tracepoint.md",
+    "机密计算.md",
+    "NUMA balancing.md",
+    "kprobe.md",
+    "ARMv9.md",
+    "system",
+    "concurrency",
+    "git",
+    "perf",
+    "crypto",
+    "arch"
+  ]
+}
